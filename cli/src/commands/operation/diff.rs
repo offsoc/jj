@@ -23,7 +23,6 @@ use jj_lib::backend::ChangeId;
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
 use jj_lib::dag_walk;
-use jj_lib::git::REMOTE_NAME_FOR_LOCAL_GIT_REPO;
 use jj_lib::graph::GraphEdge;
 use jj_lib::graph::TopoGroupedGraphIterator;
 use jj_lib::matchers::EverythingMatcher;
@@ -37,6 +36,7 @@ use jj_lib::repo::Repo;
 use jj_lib::revset;
 use jj_lib::revset::RevsetIteratorExt as _;
 
+use crate::cli_util::is_special_git_remote;
 use crate::cli_util::short_change_hash;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::LogContentFormat;
@@ -354,7 +354,7 @@ pub fn show_op_diff(
     )
     // Skip updates to the local git repo, since they should typically be covered in
     // local branches.
-    .filter(|((_, remote_name), _)| *remote_name != REMOTE_NAME_FOR_LOCAL_GIT_REPO)
+    .filter(|((_, remote_name), _)| !is_special_git_remote(remote_name))
     .collect_vec();
     if !changed_remote_bookmarks.is_empty() {
         writeln!(formatter)?;

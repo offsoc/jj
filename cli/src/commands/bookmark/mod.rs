@@ -24,7 +24,6 @@ mod untrack;
 
 use itertools::Itertools as _;
 use jj_lib::backend::CommitId;
-use jj_lib::git;
 use jj_lib::op_store::RefTarget;
 use jj_lib::op_store::RemoteRef;
 use jj_lib::repo::Repo;
@@ -49,6 +48,7 @@ use self::track::cmd_bookmark_track;
 use self::track::BookmarkTrackArgs;
 use self::untrack::cmd_bookmark_untrack;
 use self::untrack::BookmarkUntrackArgs;
+use crate::cli_util::is_special_git_remote;
 use crate::cli_util::CommandHelper;
 use crate::cli_util::RemoteBookmarkName;
 use crate::cli_util::RemoteBookmarkNamePattern;
@@ -186,7 +186,7 @@ fn has_tracked_remote_bookmarks(view: &View, bookmark: &str) -> bool {
         &StringPattern::exact(bookmark),
         &StringPattern::everything(),
     )
-    .filter(|&((_, remote_name), _)| remote_name != git::REMOTE_NAME_FOR_LOCAL_GIT_REPO)
+    .filter(|&((_, remote_name), _)| !is_special_git_remote(remote_name))
     .any(|(_, remote_ref)| remote_ref.is_tracking())
 }
 

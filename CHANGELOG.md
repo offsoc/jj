@@ -8,6 +8,9 @@ to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+* New `git.init-track-local-bookmarks` config option to automatically track
+  local bookmarks during `jj git init --colocate`.
+
 ### Release highlights
 
 ### Breaking changes

@@ -39,3 +39,6 @@ edit = false
 max-new-file-size = "1MiB"
 auto-track = "all()"
 auto-update-stale = false
+
+[git]
+init-track-local-bookmarks = false

@@ -21,6 +21,7 @@ use jj_lib::file_util;
 use jj_lib::git;
 use jj_lib::git::parse_git_ref;
 use jj_lib::git::RefName;
+use jj_lib::repo::MutableRepo;
 use jj_lib::repo::ReadonlyRepo;
 use jj_lib::repo::Repo;
 use jj_lib::workspace::Workspace;
@@ -172,18 +173,23 @@ fn do_init(
             maybe_add_gitignore(&workspace_command)?;
             workspace_command.maybe_snapshot(ui)?;
             maybe_set_repository_level_trunk_alias(ui, &workspace_command)?;
-            if !workspace_command.working_copy_shared_with_git() {
-                let mut tx = workspace_command.start_transaction();
+            let working_copy_shared_with_git = workspace_command.working_copy_shared_with_git();
+            let mut tx = workspace_command.start_transaction();
+            if !working_copy_shared_with_git {
                 jj_lib::git::import_head(tx.repo_mut())?;
                 if let Some(git_head_id) = tx.repo().view().git_head().as_normal().cloned() {
                     let git_head_commit = tx.repo().store().get_commit(&git_head_id)?;
                     tx.check_out(&git_head_commit)?;
                 }
-                if tx.repo().has_changes() {
-                    tx.finish(ui, "import git head")?;
-                }
             }
-            print_trackable_remote_bookmarks(ui, workspace_command.repo().view())?;
+            if settings.get_bool("git.init-track-local-bookmarks")? {
+                track_local_bookmarks(ui, tx.repo_mut())?;
+            } else {
+                print_trackable_remote_bookmarks(ui, tx.repo().view())?;
+            }
+            if tx.repo().has_changes() {
+                tx.finish(ui, "import git head")?;
+            }
         }
         GitInitMode::Internal => {
             Workspace::init_internal_git(&settings, workspace_root)?;
@@ -249,6 +255,35 @@ pub fn maybe_set_repository_level_trunk_alias(
             }
         };
     };
+
+    Ok(())
+}
+
+fn track_local_bookmarks(ui: &mut Ui, repo: &mut MutableRepo) -> Result<(), CommandError> {
+    let pairs: Vec<(String, String)> = repo
+        .view()
+        .bookmarks()
+        .filter(|(_, bookmark_target)| bookmark_target.local_target.is_present())
+        .flat_map(|(name, bookmark_target)| {
+            bookmark_target
+                .remote_refs
+                .into_iter()
+                .filter(|&(remote_name, _)| remote_name != "git")
+                .map(|(remote_name, _)| (name.into(), remote_name.into()))
+        })
+        .collect();
+
+    if let Some(mut formatter) = ui.status_formatter() {
+        writeln!(formatter, "Tracking the following remote bookmarks:")?;
+        for (name, remote_name) in &pairs {
+            write!(formatter, "  ")?;
+            writeln!(formatter.labeled("bookmark"), "{name}@{remote_name}")?;
+        }
+    }
+
+    for (name, remote_name) in &pairs {
+        repo.track_remote_bookmark(name, remote_name);
+    }
 
     Ok(())
 }
